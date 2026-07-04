@@ -112,7 +112,10 @@ export default function statusline(pi: ExtensionAPI) {
 				},
 				invalidate() {},
 				render(width: number): string[] {
-					const lines = [renderStatusline(width, ctx, footerData, theme, config, runtime)];
+					// Use a large width so the preset doesn't truncate — we'll wrap instead
+					const mainLine = renderStatusline(9999, ctx, footerData, theme, config, runtime);
+					const lines = wrapTextWithAnsi(mainLine, width);
+					// If wrapping produced the same single line that fits, deduplicate
 					lines.push(...renderExtensionStatusline(width, footerData, theme, config, runtime));
 					return lines;
 				},
