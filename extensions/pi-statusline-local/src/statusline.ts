@@ -69,11 +69,10 @@ const DEFAULT_SEGMENTS: SegmentName[] = [
 	"thinking",
 	"cwd",
 	"branch",
-	"tools",
 	"context",
+	"tools",
 	"tokens",
 	"cost",
-	"time",
 ];
 
 const PALETTES: Record<PaletteName, ThemeColor[]> = {
@@ -292,11 +291,18 @@ function buildSegment(
 			return segment(name, formatToolActivity(runtime), color, "runtime");
 		case "context": {
 			const usage = ctx.getContextUsage();
-			const value =
-				usage?.percent === null || usage?.percent === undefined
-					? "🪟 ctx ?"
-					: `🪟 ctx ${usage.percent.toFixed(0)}%`;
-			return segment(name, value, contextColor(usage?.percent), "runtime");
+			if (!usage || usage.percent === null || usage.percent === undefined) {
+				return segment(name, "🪟 ctx ?", "dim", "runtime");
+			}
+			const used = formatCount(usage.tokens);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const maxTokens = (usage as any).maxTokens;
+			const maxStr = maxTokens
+				? formatCount(maxTokens)
+				: usage.percent > 0
+					? formatCount(Math.round(usage.tokens / (usage.percent / 100)))
+					: "?";
+			return segment(name, `🪟 ctx ${used}/${maxStr} (${usage.percent.toFixed(0)}%)`, contextColor(usage.percent), "runtime");
 		}
 		case "tokens": {
 			const totals = getTokenTotals(ctx);
@@ -620,8 +626,8 @@ function readGobarsCacheRaw(): string | null {
 
 export function formatCount(value: number): string {
 	if (value < 1000) return `${value}`;
-	if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k`;
-	return `${(value / 1_000_000).toFixed(1)}m`;
+	if (value < 1_000_000) return `${(value / 1000).toFixed(value < 10_000 ? 1 : 0)}k`.replace(".0k", "k");
+	return `${(value / 1_000_000).toFixed(1)}m`.replace(".0m", "m");
 }
 
 function formatTime(): string {
