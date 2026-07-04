@@ -1,0 +1,4 @@
+pi-go-bars.json
+*.log
+*.cache.json
+node_modules/
