@@ -271,7 +271,7 @@ function buildSegment(
 		case "brand":
 			return segment(name, "π", "accent", "header", true);
 		case "model": {
-			const provider = ctx.model?.provider ?? "";
+			const provider = shortenProvider(ctx.model?.provider ?? "");
 			const modelId = shortenModel(ctx.model?.id ?? "no-model");
 			const label = provider ? `🤖 (${provider}) ${modelId}` : `🤖 ${modelId}`;
 			return segment(name, label, color, "header");
@@ -646,4 +646,16 @@ export function shortenModel(model: string): string {
 		.replace(/^gpt-/, "gpt ")
 		.replace(/-20\d{6}$/, "")
 		.replace(/-latest$/, "");
+}
+
+// Short operator (provider) display names — full ids like "opencode-go" eat
+// too much of the statusline on narrow Termux screens. Model id stays as-is.
+const PROVIDER_ALIASES: Record<string, string> = {
+	"opencode-go": "go",
+	deepseek: "ds",
+	"deepseek-api": "ds",
+};
+
+export function shortenProvider(provider: string): string {
+	return PROVIDER_ALIASES[provider] ?? provider;
 }
