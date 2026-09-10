@@ -19,7 +19,7 @@ The setup script:
 
 | Component | Description |
 |---|---|
-| `pi-go-bars-local` | Opencode Go usage in statusline (`🏃 Go │ R 42% ...`) |
+| `pi-go-bars-local` | Opencode Go usage in statusline (`🏃 Go · R 42% 4h58m · ...`), width-aware so it fits one line on phone terminals |
 | `pi-statusline-local` | Custom footer with provider, no cost, Go+DS integration |
 | `settings.json` | pi package registry |
 

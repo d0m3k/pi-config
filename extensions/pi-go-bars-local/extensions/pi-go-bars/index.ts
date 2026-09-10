@@ -191,6 +191,27 @@ export default function (pi: ExtensionAPI) {
     } catch { /* silent */ }
   }
 
+  // Compact countdown ("4h58m", "3d4h", "22d18h"). The widget/detail view keeps
+  // the roomier formatDuration from core.ts; the statusline needs the tight form
+  // to stay on a single line on phone-width terminals.
+  function compactDuration(sec: number): string {
+    if (!Number.isFinite(sec) || sec <= 0) return "now";
+    const d = Math.floor(sec / 86400);
+    const h = Math.floor((sec % 86400) / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    if (d > 0 && h > 0) return `${d}d${h}h`;
+    if (d > 0) return `${d}d`;
+    if (h > 0 && m > 0) return `${h}h${m}m`;
+    if (h > 0) return `${h}h`;
+    if (m > 0) return `${m}m`;
+    return "<1m";
+  }
+
+  // Same fallback chain pi-tui uses for its own layout.
+  function statusWidth(): number {
+    return process.stdout.columns || Number(process.env.COLUMNS) || 80;
+  }
+
   function updateGobarsStatus() {
     if (state.loading) {
       writeGobarsCache("🏃 Go loading…");
@@ -203,34 +224,56 @@ export default function (pi: ExtensionAPI) {
 
     const elapsed = state.data.fetchedAt ? Math.floor((Date.now() - state.data.fetchedAt) / 1000) : 0;
 
-    const sections: string[] = ["🏃 Go"];
-
+    const wins: Array<{ label: string; pct: string; reset: string }> = [];
     const addWin = (label: string, w: { usagePercent: number; resetInSec: number } | null) => {
       if (!w) return;
       const pct = clampPercent(w.usagePercent);
       const reset = Math.max(0, w.resetInSec - elapsed);
-      const pctStr = pct >= 90 ? `⚠${pct}%` : `${pct}%`;
-      const resetStr = reset > 0 ? ` ⟳ ${formatDuration(reset)}` : "";
-      sections.push(`${label} ${pctStr}${resetStr}`);
+      wins.push({
+        label,
+        pct: pct >= 90 ? `⚠${pct}%` : `${pct}%`,
+        reset: reset > 0 ? compactDuration(reset) : "",
+      });
     };
 
     addWin("R", state.data.rolling);
     addWin("W", state.data.weekly);
     addWin("M", state.data.monthly);
 
-    if (state.billing && !state.billing.error) {
-      sections.push(`Zen ${formatUsd(state.billing.balanceUsd)}`);
-    }
-
-    if (state.data.stale) sections.push("⚠ stale");
-
-    let line = sections.join("  │  ");
-
+    // Trailing extras share the same separator and count against the width budget.
+    const extras: string[] = [];
+    if (state.billing && !state.billing.error) extras.push(`Zen ${formatUsd(state.billing.balanceUsd)}`);
     // DeepSeek balance (from deepseek-balance extension cache)
     const dsBalance = readDeepseekBalance();
-    if (dsBalance) line += `  ||  DS API💰 ¥${dsBalance}`;
+    if (dsBalance) extras.push(`DS ¥${dsBalance}`);
+    if (state.data.stale) extras.push("⚠stale");
+    const suffix = extras.length > 0 ? " · " + extras.join(" · ") : "";
 
-    writeGobarsCache(line);
+    const brand = "🏃 Go";
+    const budget = statusWidth() - visibleWidth(suffix);
+
+    // Density tiers, widest first; the first that fits the terminal on one line
+    // wins. Mirrors the widget's graceful degradation so the row never wraps.
+    const tier = (withBrand: boolean, sep: string, resetPrefix: string, withResets: boolean) =>
+      [
+        ...(withBrand ? [brand] : []),
+        ...wins.map((w) =>
+          [`${w.label} ${w.pct}`, withResets && w.reset ? resetPrefix + w.reset : ""]
+            .filter(Boolean)
+            .join(" "),
+        ),
+      ].join(sep);
+
+    const line =
+      [
+        tier(true, "  │  ", "⟳ ", true),
+        tier(true, " · ", "⟳", true),
+        tier(true, " · ", "", true),
+        tier(false, " · ", "", true),
+        tier(false, " · ", "", false),
+      ].find((candidate) => visibleWidth(candidate) <= budget) ?? tier(false, " · ", "", false);
+
+    writeGobarsCache(line + suffix);
   }
 
   function readDeepseekBalance(): string | null {

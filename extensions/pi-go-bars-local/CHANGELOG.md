@@ -1,4 +1,9 @@
 # Changelog
+## [Unreleased]
+
+### Changed
+- **Width-aware statusline**: the cached status text now picks the widest density tier that fits the terminal, so the Go usage row stays on a single line on narrow (phone) terminals. Tiers: `🏃 Go  │  R 0% ⟳ 4h58m  │  …` (wide) → `🏃 Go · R 0% ⟳4h58m · …` → `🏃 Go · R 0% 4h58m · …` → drop brand → `R 0% · W 0% · M 7%`. Countdowns use a tight `4h58m` / `3d4h` / `22d18h` form; the widget and `/gobars` view still use the roomier `formatDuration`.
+
 ## [0.3.0] — 2026-06-18
 
 ### Added
