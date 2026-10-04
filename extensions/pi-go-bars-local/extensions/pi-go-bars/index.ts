@@ -183,11 +183,11 @@ export default function (pi: ExtensionAPI) {
 
   const GOBARS_CACHE_FILE = join(getAgentDir(), "gobars-cache.json");
 
-  function writeGobarsCache(text: string | null) {
+  function writeGobarsCache(text: string | null, variants?: string[], suffix?: string) {
     try {
       const dir = getAgentDir();
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-      writeFileSync(GOBARS_CACHE_FILE, JSON.stringify({ text, ts: Date.now() }));
+      writeFileSync(GOBARS_CACHE_FILE, JSON.stringify({ text, variants, suffix, ts: Date.now() }));
     } catch { /* silent */ }
   }
 
@@ -264,16 +264,16 @@ export default function (pi: ExtensionAPI) {
         ),
       ].join(sep);
 
-    const line =
-      [
-        tier(true, "  │  ", "⟳ ", true),
-        tier(true, " · ", "⟳", true),
-        tier(true, " · ", "", true),
-        tier(false, " · ", "", true),
-        tier(false, " · ", "", false),
-      ].find((candidate) => visibleWidth(candidate) <= budget) ?? tier(false, " · ", "", false);
+    const tiers = [
+      tier(true, "  │  ", "⟳ ", true),
+      tier(true, " · ", "⟳", true),
+      tier(true, " · ", "", true),
+      tier(false, " · ", "", true),
+      tier(false, " · ", "", false),
+    ];
+    const line = tiers.find((candidate) => visibleWidth(candidate) <= budget) ?? tiers[tiers.length - 1];
 
-    writeGobarsCache(line + suffix);
+    writeGobarsCache(line + suffix, tiers, suffix);
   }
 
   function readDeepseekBalance(): string | null {

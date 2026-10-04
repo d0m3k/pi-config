@@ -116,21 +116,32 @@ export default function statusline(pi: ExtensionAPI) {
 					const mainLine = renderStatusline(9999, ctx, footerData, theme, config, runtime);
 					// Wide terminal (desktop): run the extension statuses — Go plan
 					// bars, DeepSeek balance, … — next to the main statusline instead
-					// of on their own line. Narrow terminals (phone) keep the
-					// existing wrapped layout below.
-					const extStatus = formatExtensionStatuses(
-						footerData.getExtensionStatuses(),
-						theme,
-						config,
-						runtime,
-					);
+					// of on their own line. Go bars publish progressively shorter
+					// variants (the same density tiers used on narrow phone
+					// terminals); pick the widest one that still fits next to the
+					// main line. If none fits, keep the wrapped layout below.
 					const inlineSeparator = "  ";
-					if (
-						extStatus &&
-						visibleWidth(mainLine) + visibleWidth(inlineSeparator + extStatus) <= width
-					) {
-						return [mainLine + inlineSeparator + extStatus];
+					const separator = extensionStatusSeparator(config.preset, theme);
+					const statuses = footerData.getExtensionStatuses();
+					const others = otherExtensionStatusParts(statuses, theme, config, runtime);
+					const gobars = readGobarsCache();
+
+					const candidates: string[] = [];
+					if (gobars?.variants?.length) {
+						for (const variant of gobars.variants) {
+							candidates.push([variant + (gobars.suffix ?? ""), ...others].join(separator));
+						}
+					} else if (gobars?.text) {
+						candidates.push([gobars.text, ...others].join(separator));
+					} else if (others.length > 0) {
+						candidates.push(others.join(separator));
 					}
+
+					const inline = candidates.find(
+						(candidate) =>
+							visibleWidth(mainLine) + visibleWidth(inlineSeparator + candidate) <= width,
+					);
+					if (inline) return [mainLine + inlineSeparator + inline];
 
 					const lines = wrapTextWithAnsi(mainLine, width);
 					lines.push(...renderExtensionStatusline(width, footerData, theme, config, runtime));
@@ -419,17 +430,13 @@ export function prLinkFromStatuses(statuses: ReadonlyMap<string, string>): strin
 	return close === -1 ? undefined : value.slice(open, close + closeMarker.length);
 }
 
-function formatExtensionStatuses(
+function otherExtensionStatusParts(
 	statuses: ReadonlyMap<string, string>,
 	theme: Theme,
 	config: StatuslineConfig,
 	runtime: RuntimeState,
-): string {
-	const separator = extensionStatusSeparator(config.preset, theme);
-	const gobarsText = readGobarsCacheRaw();
-	const gobarsStatus = gobarsText ? [theme.fg("accent", gobarsText)] : [];
-	const visibleStatuses = [
-		...gobarsStatus,
+): string[] {
+	return [
 		...formatDuplicateExtensionStatus(runtime, theme),
 		...[...statuses.entries()]
 			// github-pr is rendered inline in the branch segment, so skip it here to avoid duplication.
@@ -438,6 +445,21 @@ function formatExtensionStatuses(
 					key !== STATUSLINE_KEY && key !== GITHUB_PR_KEY && value.trim().length > 0,
 			)
 			.map(([key, value]) => formatExtensionStatus(key, value, theme, config)),
+	];
+}
+
+function formatExtensionStatuses(
+	statuses: ReadonlyMap<string, string>,
+	theme: Theme,
+	config: StatuslineConfig,
+	runtime: RuntimeState,
+): string {
+	const separator = extensionStatusSeparator(config.preset, theme);
+	const gobars = readGobarsCache();
+	const gobarsStatus = gobars?.text ? [theme.fg("accent", gobars.text)] : [];
+	const visibleStatuses = [
+		...gobarsStatus,
+		...otherExtensionStatusParts(statuses, theme, config, runtime),
 	].slice(0, 5);
 
 	return visibleStatuses.join(separator);
@@ -628,17 +650,20 @@ function readDeepseekBalanceRaw(): string | null {
 	}
 }
 
-function readGobarsCacheRaw(): string | null {
+interface GobarsCache {
+	text: string | null;
+	variants?: string[];
+	suffix?: string;
+}
+
+function readGobarsCache(): GobarsCache | null {
 	try {
 		const cachePath = join(getAgentDir(), "gobars-cache.json");
 		if (!existsSync(cachePath)) return null;
-		const cache = JSON.parse(readFileSync(cachePath, "utf8")) as {
-			text: string | null;
-			ts: number;
-		};
-		if (!cache.text) return null;
+		const cache = JSON.parse(readFileSync(cachePath, "utf8")) as GobarsCache & { ts: number };
+		if (!cache.text && !cache.variants?.length) return null;
 		if (Date.now() - cache.ts > 2 * 60 * 1000) return null;
-		return cache.text;
+		return cache;
 	} catch {
 		return null;
 	}
