@@ -9,7 +9,7 @@ import type {
 	Theme,
 	ThemeColor,
 } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { classicExtensionSeparator, renderClassicStatusline } from "../presets/classic.js";
 import { renderTokyoNightStatusline, tokyoNightExtensionSeparator } from "../presets/tokyo-night.js";
 import type {
@@ -114,8 +114,25 @@ export default function statusline(pi: ExtensionAPI) {
 				render(width: number): string[] {
 					// Use a large width so the preset doesn't truncate — we'll wrap instead
 					const mainLine = renderStatusline(9999, ctx, footerData, theme, config, runtime);
+					// Wide terminal (desktop): run the extension statuses — Go plan
+					// bars, DeepSeek balance, … — next to the main statusline instead
+					// of on their own line. Narrow terminals (phone) keep the
+					// existing wrapped layout below.
+					const extStatus = formatExtensionStatuses(
+						footerData.getExtensionStatuses(),
+						theme,
+						config,
+						runtime,
+					);
+					const inlineSeparator = "  ";
+					if (
+						extStatus &&
+						visibleWidth(mainLine) + visibleWidth(inlineSeparator + extStatus) <= width
+					) {
+						return [mainLine + inlineSeparator + extStatus];
+					}
+
 					const lines = wrapTextWithAnsi(mainLine, width);
-					// If wrapping produced the same single line that fits, deduplicate
 					lines.push(...renderExtensionStatusline(width, footerData, theme, config, runtime));
 					return lines;
 				},
