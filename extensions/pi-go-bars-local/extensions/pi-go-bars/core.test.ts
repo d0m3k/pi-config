@@ -1,5 +1,5 @@
 /**
- * Unit tests for the billing + dashboard parsers.
+ * Unit tests for the billing + go-status parsers.
  *
  * Run:  node --test extensions/pi-go-bars/core.test.ts
  *
@@ -12,7 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
 
-import { parseBilling, parseDashboard, formatUsd, loadConfig } from "./core.ts";
+import { parseBilling, parseGoStatus, formatUsd, loadConfig } from "./core.ts";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const fixture = (name: string) =>
@@ -88,32 +88,55 @@ test("parseBilling: nested object in billing body is handled (depth scan)", () =
   assert.equal(data.autoReload, false);
 });
 
-// ─── parseDashboard (regression guard for the Go path) ───────────────────────
+// ─── parseGoStatus (regression guard for the Go path) ────────────────────────
 
-test("parseDashboard: missing SSR windows → parser-outdated error", () => {
-  const html =
-    '<html><body>rollingUsage weeklyUsage monthlyUsage</body></html>';
-  const data = parseDashboard(html);
+test("parseGoStatus: real console API payload (microcent meters) → windows", () => {
+  const payload = JSON.stringify({
+    subscriberUserId: "acc_TEST",
+    product: "go",
+    access: {
+      endsAt: "2026-11-03T13:58:49.000Z",
+      meters: {
+        fiveHour: {
+          resetsAt: "2026-10-04T14:17:36.000Z",
+          limitMicroCents: "1200000000",
+          usedMicroCents: "13353142",
+        },
+        week: {
+          resetsAt: "2026-10-05T00:00:00.000Z",
+          limitMicroCents: "3000000000",
+          usedMicroCents: "13353142",
+        },
+        month: {
+          resetsAt: "2026-11-03T13:58:49.000Z",
+          limitMicroCents: "6000000000",
+          usedMicroCents: "13353142",
+        },
+      },
+    },
+  });
+  const data = parseGoStatus(payload);
+  assert.equal(data.error, undefined);
+  assert.ok(Math.abs((data.rolling?.usagePercent ?? 0) - (13353142 / 1200000000) * 100) < 0.01);
+  assert.ok(Math.abs((data.weekly?.usagePercent ?? 0) - (13353142 / 3000000000) * 100) < 0.01);
+  assert.ok(Math.abs((data.monthly?.usagePercent ?? 0) - (13353142 / 6000000000) * 100) < 0.01);
+  assert.ok(typeof data.rolling?.resetInSec === "number");
+  assert.ok(data.monthly!.resetInSec! > data.rolling!.resetInSec!);
+});
+
+test("parseGoStatus: missing meters → error", () => {
+  const data = parseGoStatus(JSON.stringify({ product: "go", access: {} }));
   assert.equal(data.rolling, null);
   assert.equal(data.weekly, null);
   assert.equal(data.monthly, null);
   assert.ok(data.error);
-  assert.match(data.error!, /parser may be outdated/);
+  assert.match(data.error!, /no meters/);
 });
 
-test("parseDashboard: valid SSR hydration objects parse to windows", () => {
-  const html =
-    'rollingUsage:$R[2]={usagePercent:42,resetInSec:3600} ' +
-    'weeklyUsage:$R[3]={resetInSec:604800,usagePercent:17} ' +
-    'monthlyUsage:$R[4]={usagePercent:8,resetInSec:2592000}';
-  const data = parseDashboard(html);
-  assert.equal(data.error, undefined);
-  assert.equal(data.rolling?.usagePercent, 42);
-  assert.equal(data.rolling?.resetInSec, 3600);
-  assert.equal(data.weekly?.usagePercent, 17);
-  assert.equal(data.weekly?.resetInSec, 604800);
-  assert.equal(data.monthly?.usagePercent, 8);
-  assert.equal(data.monthly?.resetInSec, 2592000);
+test("parseGoStatus: invalid JSON → parse failed error", () => {
+  const data = parseGoStatus("<html>not json</html>");
+  assert.ok(data.error);
+  assert.match(data.error!, /parse failed/);
 });
 
 // ─── formatUsd ───────────────────────────────────────────────────────────────
@@ -180,5 +203,17 @@ test("loadConfig: JSON showZen:true opts in", () => {
   } finally {
     process.env = saved;
     fs.rmSync(tmp, { force: true });
+  }
+});
+
+test("loadConfig: OPENCODE_GO_SESSION_COOKIE env is picked up", () => {
+  const saved = { ...process.env };
+  process.env.OPENCODE_GO_WORKSPACE_ID = "wrk_TEST";
+  process.env.OPENCODE_GO_AUTH_COOKIE = "Fe26.2**test";
+  process.env.OPENCODE_GO_SESSION_COOKIE = "st_test";
+  try {
+    assert.equal(loadConfig()?.sessionCookie, "st_test");
+  } finally {
+    process.env = saved;
   }
 });

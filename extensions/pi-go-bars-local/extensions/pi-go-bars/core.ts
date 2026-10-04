@@ -1,12 +1,15 @@
 /**
  * Core module for Opencode Go usage bars.
  *
- * Fetches usage by scraping the Opencode Go dashboard HTML and parsing
- * SolidJS SSR hydration output for `rollingUsage`, `weeklyUsage`, and
- * `monthlyUsage` (each with `usagePercent` and `resetInSec`).
+ * Fetches usage from the private OpenCode console JSON API:
+ * `GET https://opencode.ai/console/api/go/status`, authenticated with the
+ * `auth` and `__Host-console_session` cookies plus an `x-org-id` header
+ * (org id == workspace id). The response exposes per-window meters
+ * (`fiveHour`, `week`, `month`) with used/limit microcents, which map to
+ * the rolling/weekly/monthly bars.
  *
- * Auth: workspace ID + auth cookie. Config via env vars (preferred),
- * `.env` file in current working directory (auto-detected),
+ * Auth: workspace ID + auth cookie + session cookie. Config via env vars
+ * (preferred), `.env` file in current working directory (auto-detected),
  * `~/.pi/agent/pi-go-bars.json`, or legacy opencode-go-usage config.
  */
 
@@ -64,9 +67,15 @@ export interface GoBarsConfig {
   workspaceId: string;
   authCookie: string;
   /**
-   * Opt-in: also scrape the workspace /billing page and render the Zen
-   * pay-as-you-go balance + monthly spend segment. Default false so an
-   * upgrade never changes behaviour for existing Go-only users.
+   * `__Host-console_session` cookie from opencode.ai. Required by the
+   * console JSON APIs since the old public workspace-go page was removed
+   * (auth-only requests return 401 Unauthorized).
+   */
+  sessionCookie?: string;
+  /**
+   * Opt-in: also fetch the Zen pay-as-you-go balance + monthly spend
+   * segment. Default false so an upgrade never changes behaviour for
+   * existing Go-only users.
    */
   showZen?: boolean;
 }
@@ -96,6 +105,7 @@ export function loadEnvFile(filePath: string): GoBarsConfig | null {
     const lines = raw.split(/\r?\n/);
     let workspaceId = "";
     let authCookie = "";
+    let sessionCookie = "";
     let showZen = false;
 
     for (const line of lines) {
@@ -120,13 +130,15 @@ export function loadEnvFile(filePath: string): GoBarsConfig | null {
         workspaceId = value;
       } else if (key === "OPENCODE_GO_AUTH_COOKIE" && value) {
         authCookie = value;
+      } else if (key === "OPENCODE_GO_SESSION_COOKIE" && value) {
+        sessionCookie = value;
       } else if (key === "OPENCODE_GO_SHOW_ZEN") {
         showZen = isTruthyFlag(value);
       }
     }
 
     if (workspaceId && authCookie) {
-      return { workspaceId, authCookie, showZen } as GoBarsConfig;
+      return { workspaceId, authCookie, sessionCookie: sessionCookie || undefined, showZen } as GoBarsConfig;
     }
   } catch (err) {
     logError("config:loadEnvFile", err);
@@ -142,10 +154,12 @@ export function loadConfig(configFile = DEFAULT_CONFIG_FILE): GoBarsConfig | nul
   // 1) Environment variables (most secure)
   const envWs = process.env.OPENCODE_GO_WORKSPACE_ID?.trim();
   const envCookie = process.env.OPENCODE_GO_AUTH_COOKIE?.trim();
+  const envSession = process.env.OPENCODE_GO_SESSION_COOKIE?.trim();
   if (envWs && envCookie) {
     return {
       workspaceId: envWs,
       authCookie: envCookie,
+      sessionCookie: envSession || undefined,
       showZen: isTruthyFlag(process.env.OPENCODE_GO_SHOW_ZEN),
     } as GoBarsConfig;
   }
@@ -160,9 +174,15 @@ export function loadConfig(configFile = DEFAULT_CONFIG_FILE): GoBarsConfig | nul
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const ws = isString(parsed.workspaceId) ? parsed.workspaceId.trim() : "";
     const cookie = isString(parsed.authCookie) ? parsed.authCookie.trim() : "";
+    const session = isString(parsed.sessionCookie) ? parsed.sessionCookie.trim() : "";
     if (ws && cookie) {
       const showZen = parsed.showZen === true;
-      return { workspaceId: ws, authCookie: cookie, showZen } as GoBarsConfig;
+      return {
+        workspaceId: ws,
+        authCookie: cookie,
+        sessionCookie: session || undefined,
+        showZen,
+      } as GoBarsConfig;
     }
   } catch (err) {
     logError("config:loadJson", err);
@@ -264,111 +284,114 @@ function writeCache(data: GoUsageData): void {
   writeCacheFile(CACHE_FILE, data, CACHE_CONTEXT);
 }
 
-// ─── Fetch ───────────────────────────────────────────────────────────────────
+// ─── Fetch (console JSON API) ────────────────────────────────────────────────
 
-const DASHBOARD_URL = (workspaceId: string) =>
-  `https://opencode.ai/workspace/${workspaceId}/go`;
+const STATUS_URL = "https://opencode.ai/console/api/go/status";
+const SESSION_COOKIE_NAME = "__Host-console_session";
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Gecko/20100101 Firefox/148.0";
 const SCRAPE_TIMEOUT_MS = 10_000;
 
-/** Regex for SolidJS SSR hydration output. Field order may vary. */
-const NUM = String.raw`(-?\d+(?:\.\d+)?)`;
-
-function windowRegex(name: string) {
-  return [
-    new RegExp(
-      String.raw`${name}:\$R\[\d+\]=\{[^}]*usagePercent:${NUM}[^}]*resetInSec:${NUM}[^}]*\}`,
-    ),
-    new RegExp(
-      String.raw`${name}:\$R\[\d+\]=\{[^}]*resetInSec:${NUM}[^}]*usagePercent:${NUM}[^}]*\}`,
-    ),
-  ];
-}
-
-const [RE_ROLLING_PCT, RE_ROLLING_RST] = windowRegex("rollingUsage");
-const [RE_WEEKLY_PCT, RE_WEEKLY_RST] = windowRegex("weeklyUsage");
-const [RE_MONTHLY_PCT, RE_MONTHLY_RST] = windowRegex("monthlyUsage");
-
-function parseWindow(
-  html: string,
-  rePct: RegExp,
-  reRst: RegExp,
-): GoUsageWindow | null {
-  let m = rePct.exec(html);
-  if (m) {
-    const usagePercent = Number(m[1]);
-    const resetInSec = Number(m[2]);
-    if (Number.isFinite(usagePercent) && Number.isFinite(resetInSec)) {
-      return { usagePercent, resetInSec };
-    }
-  }
-  m = reRst.exec(html);
-  if (m) {
-    const resetInSec = Number(m[1]);
-    const usagePercent = Number(m[2]);
-    if (Number.isFinite(usagePercent) && Number.isFinite(resetInSec)) {
-      return { usagePercent, resetInSec };
-    }
-  }
-  return null;
-}
-
 /**
- * Check if HTML contains dashboard-specific SSR hydration data.
- * Used to detect silent regex failures when SSR format changes.
- * Does NOT check for broad keywords that could match a login page.
+ * Parse the `/console/api/go/status` JSON payload. The meters (used/limit
+ * microcents + reset time) replace the SSR hydration objects from the old
+ * scraped dashboard page.
  */
-function looksLikeDashboard(html: string): boolean {
-  return html.includes("rollingUsage") || html.includes("weeklyUsage") || html.includes("monthlyUsage");
-}
+const METER_TO_WINDOW: Record<string, "rolling" | "weekly" | "monthly"> = {
+  fiveHour: "rolling",
+  week: "weekly",
+  month: "monthly",
+};
 
-export function parseDashboard(html: string): GoUsageData {
-  const rolling = parseWindow(html, RE_ROLLING_PCT, RE_ROLLING_RST);
-  const weekly = parseWindow(html, RE_WEEKLY_PCT, RE_WEEKLY_RST);
-  const monthly = parseWindow(html, RE_MONTHLY_PCT, RE_MONTHLY_RST);
+export function parseGoStatus(jsonText: string): GoUsageData {
+  try {
+    const payload = JSON.parse(jsonText) as {
+      access?: {
+        meters?: Record<
+          string,
+          { resetsAt?: string; limitMicroCents?: string; usedMicroCents?: string }
+        >;
+      };
+    };
+    const meters = payload.access?.meters;
+    if (!meters || Object.keys(meters).length === 0) {
+      return {
+        rolling: null,
+        weekly: null,
+        monthly: null,
+        error: "go/status returned no meters — console may have changed",
+        fetchedAt: Date.now(),
+      };
+    }
 
-  // Parser health check: if all three windows are null but HTML looks valid,
-  // the SSR format may have changed.
-  if (!rolling && !weekly && !monthly && looksLikeDashboard(html)) {
+    const now = Date.now();
+    const out: GoUsageData = { rolling: null, weekly: null, monthly: null, fetchedAt: now };
+    for (const [meter, windowKey] of Object.entries(METER_TO_WINDOW)) {
+      const m = meters[meter];
+      if (!m) continue;
+      const limit = Number(m.limitMicroCents);
+      const used = Number(m.usedMicroCents);
+      if (!Number.isFinite(limit) || !Number.isFinite(used) || limit <= 0) continue;
+      const resetInSec = m.resetsAt
+        ? Math.max(0, Math.round((Date.parse(m.resetsAt) - now) / 1000))
+        : 0;
+      out[windowKey] = {
+        usagePercent: Math.min(100, (used / limit) * 100),
+        resetInSec: Number.isFinite(resetInSec) ? resetInSec : 0,
+      };
+    }
+    return out;
+  } catch (err) {
     return {
       rolling: null,
       weekly: null,
       monthly: null,
-      error: "parser may be outdated — update pi-go-bars",
+      error: `go/status parse failed: ${err instanceof Error ? err.message : String(err)}`,
+      fetchedAt: Date.now(),
+    };
+  }
+}
+
+export async function fetchUsage(config: GoBarsConfig): Promise<GoUsageData> {
+  if (!config.sessionCookie) {
+    return {
+      rolling: null,
+      weekly: null,
+      monthly: null,
+      error:
+        "missing session cookie — set OPENCODE_GO_SESSION_COOKIE (env) or sessionCookie (pi-go-bars.json)",
       fetchedAt: Date.now(),
     };
   }
 
-  return { rolling, weekly, monthly, fetchedAt: Date.now() };
-}
-
-export async function fetchUsage(config: GoBarsConfig): Promise<GoUsageData> {
-  const url = DASHBOARD_URL(config.workspaceId);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SCRAPE_TIMEOUT_MS);
 
   try {
-    const resp = await fetch(url, {
+    const resp = await fetch(STATUS_URL, {
       headers: {
-        Cookie: `auth=${config.authCookie}`,
+        Cookie: `auth=${config.authCookie}; ${SESSION_COOKIE_NAME}=${config.sessionCookie}`,
+        "x-org-id": config.workspaceId,
+        Accept: "application/json",
         "User-Agent": USER_AGENT,
       },
       signal: controller.signal,
     });
 
+    const body = await resp.text();
     if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      let apiMsg = "";
+      try {
+        apiMsg = (JSON.parse(body) as { message?: string }).message ?? "";
+      } catch {
+        // not JSON
+      }
+      if (resp.status === 401 || resp.status === 403) {
+        throw new Error("Session expired or auth invalid — refresh the auth/session cookies");
+      }
+      throw new Error(`HTTP ${resp.status} ${resp.statusText}${apiMsg ? ` (${apiMsg})` : ""}`);
     }
-
-    // Guard against redirect-to-login: the final URL must contain the workspace path
-    const finalUrl = resp.url;
-    if (!finalUrl.includes(`/workspace/${config.workspaceId}/go`)) {
-      throw new Error("Session expired or auth invalid — refresh your cookie");
-    }
-
-    const html = await resp.text();
-    return parseDashboard(html);
+    return parseGoStatus(body);
   } finally {
     clearTimeout(timer);
   }

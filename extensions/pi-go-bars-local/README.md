@@ -30,6 +30,7 @@ Credentials stay in memory only.
 ```bash
 export OPENCODE_GO_WORKSPACE_ID="wrk_YOUR_WORKSPACE_ID"
 export OPENCODE_GO_AUTH_COOKIE="Fe26.2**YOUR_AUTH_COOKIE"
+export OPENCODE_GO_SESSION_COOKIE="st_YOUR_SESSION_COOKIE"
 # Optional: also show Zen pay-as-you-go billing (off by default)
 export OPENCODE_GO_SHOW_ZEN=1
 ```
@@ -44,6 +45,7 @@ cat > ~/.pi/agent/pi-go-bars.json << 'EOF'
 {
   "workspaceId": "wrk_YOUR_WORKSPACE_ID",
   "authCookie": "Fe26.2**YOUR_AUTH_COOKIE",
+  "sessionCookie": "st_YOUR_SESSION_COOKIE",
   "showZen": false
 }
 EOF

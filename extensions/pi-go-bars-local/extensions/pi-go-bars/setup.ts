@@ -38,6 +38,9 @@ function renderGuidePage(c: Container, t: any) {
   c.addChild(new Text(t.fg("dim", "3. Find the cookie named"), 0, 0));
   c.addChild(new Text(t.fg("success", "   auth"), 0, 0));
   c.addChild(new Text(t.fg("dim", "4. Copy its value (starts with Fe26.2**)"), 0, 0));
+  c.addChild(new Text(t.fg("dim", "5. Also copy the cookie named"), 0, 0));
+  c.addChild(new Text(t.fg("success", "   __Host-console_session"), 0, 0));
+  c.addChild(new Text(t.fg("dim", "6. Both are required now (auth alone → 401)."), 0, 0));
   c.addChild(new Spacer(1));
 
   c.addChild(new Text(t.fg("accent", "Step 3: Configure (choose one)"), 0, 0));
@@ -50,6 +53,8 @@ function renderGuidePage(c: Container, t: any) {
     t.fg("muted", "  OPENCODE_GO_WORKSPACE_ID=") + t.fg("success", "wrk_YOUR_ID"), 0, 0));
   c.addChild(new Text(
     t.fg("muted", "  OPENCODE_GO_AUTH_COOKIE=") + t.fg("success", "Fe26.2**..."), 0, 0));
+  c.addChild(new Text(
+    t.fg("muted", "  OPENCODE_GO_SESSION_COOKIE=") + t.fg("success", "st_..."), 0, 0));
   c.addChild(new Text(t.fg("dim", "  The extension auto-detects .env in the working directory."), 0, 0));
   c.addChild(new Text(t.fg("dim", "  No restart needed."), 0, 0));
   c.addChild(new Spacer(1));
@@ -62,7 +67,7 @@ function renderGuidePage(c: Container, t: any) {
   c.addChild(new Text(
     t.fg("dim", "  cat > ~/.pi/agent/pi-go-bars.json << 'EOF'"), 0, 0));
   c.addChild(new Text(
-    t.fg("muted", "  {\n    \"workspaceId\": \"") + t.fg("success", "wrk_YOUR_ID") + t.fg("muted", "\",\n    \"authCookie\": \"") + t.fg("success", "Fe26.2**...") + t.fg("muted", "\"\n  }"),
+    t.fg("muted", "  {\n    \"workspaceId\": \"") + t.fg("success", "wrk_YOUR_ID") + t.fg("muted", "\",\n    \"authCookie\": \"") + t.fg("success", "Fe26.2**...") + t.fg("muted", "\",\n    \"sessionCookie\": \"") + t.fg("success", "st_...") + t.fg("muted", "\"\n  }"),
     0, 0));
   c.addChild(new Text(t.fg("dim", "  EOF"), 0, 0));
   c.addChild(new Text(t.fg("dim", "  chmod 600 ~/.pi/agent/pi-go-bars.json"), 0, 0));
