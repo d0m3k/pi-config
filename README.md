@@ -21,7 +21,21 @@ The setup script:
 |---|---|
 | `pi-go-bars-local` | Opencode Go usage in statusline (`🏃 Go · R 42% 4h58m · ...`), width-aware so it fits one line on phone terminals |
 | `pi-statusline-local` | Custom footer with provider, no cost, Go+DS integration |
+| `pi-subagents` | Subagent delegation, declared in `settings.json` and installed from npm on first start |
 | `settings.json` | pi package registry |
+
+## Subagents
+
+`pi-subagents` is declared in `settings.json` (`packages`), so pi installs it from
+npm on first startup. Its built-in agents (scout, worker, reviewer, oracle, ...)
+ship with the package, so no agent files or model pins are committed here — agents
+inherit the parent session's model unless a model is pinned.
+
+To install or refresh it manually:
+
+```bash
+pi install npm:pi-subagents
+```
 
 ## Credentials
 

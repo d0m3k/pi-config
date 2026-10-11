@@ -6,7 +6,8 @@
   "defaultThinkingLevel": "high",
   "packages": [
     "extensions/pi-statusline-local",
-    "extensions/pi-go-bars-local"
+    "extensions/pi-go-bars-local",
+    "npm:pi-subagents"
   ],
   "hideThinkingBlock": false
 }
