@@ -11,23 +11,24 @@
 #                                            ~/.omp/agent/config.yml if the file
 #                                            has no statusLine section yet)
 #
-# The `usage` segment shows the OpenCode Go plan windows (rolling 5h / weekly 7d
-# / monthly) that omp fetches itself from https://opencode.ai/zen/go/v1/usage
-# using the authenticated opencode-go credential — no cookies, no scraping.
+# The OpenCode Go plan windows are NOT a segment here: on a narrow terminal the
+# status line drops its last segment until the line fits, and the built-in
+# `usage` segment (~52 columns) is the first to go. They are published as an
+# extra row below the bar by `extensions/opencode-go-status.ts` instead, so the
+# numbers survive on a phone-width screen. See README.md.
 
 statusLine:
   # Required: leftSegments/rightSegments are only honoured when preset is
   # "custom" — with any other preset the segment lists below are ignored.
   preset: custom
   separator: powerline-thin
-  # `usage` sits right after `model` on purpose: the layout drops segments from
-  # the end when the terminal is narrow, so earlier entries survive. With the
-  # tier label shortened to "Go" the segment stays visible down to ~110 cols.
+  # Same order as the built-in "default" preset minus `usage`; the layout drops
+  # segments from the end of this list (skipping `path`, which shrinks instead),
+  # so the earliest entries survive the narrowest terminals.
   leftSegments:
     - pi
     - vim
     - model
-    - usage
     - mode
     - collab
     - stream
@@ -38,8 +39,8 @@ statusLine:
     - cost
   rightSegments:
     - session_name
-  # Copied from the built-in "default" preset so switching to `custom` does not
-  # change how the other segments render.
+  # Copied from the built-in "default" preset so the other segments render
+  # exactly as they do there.
   segmentOptions:
     model:
       showThinkingLevel: true

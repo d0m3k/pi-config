@@ -17,7 +17,7 @@ The `omp/` directory is **not** read by pi, and `./setup.sh` never touches it �
 git clone git@github.com:d0m3k/pi-config.git ~/pi-config
 cd ~/pi-config
 ./setup.sh          # pi: extensions + settings.json
-./omp/setup.sh      # omp: status line (skip if you don't use oh-my-pi)
+./omp/setup.sh      # omp: status line + OpenCode Go usage row (skip if you don't use oh-my-pi)
 ```
 
 The pi setup script:
@@ -33,7 +33,7 @@ The pi setup script:
 | `pi-statusline-local` | pi | Custom footer with provider, no cost, Go+DS integration |
 | `pi-subagents` | pi | Subagent delegation, declared in `settings.json` and installed from npm on first start |
 | `settings.json` | pi | pi package registry |
-| `omp/` | **oh-my-pi (omp)** | omp status line (`usage` segment = OpenCode Go 5h / 7d / month windows). **pi ignores this directory.** |
+| `omp/` | **oh-my-pi (omp)** | omp status line + OpenCode Go usage row (5h / 7d / month windows, above the editor's second line). **pi ignores this directory.** |
 
 ## Subagents
 
@@ -50,18 +50,20 @@ pi install npm:pi-subagents
 
 ## oh-my-pi (omp)
 
-`omp/` configures **oh-my-pi**, a different harness from `pi` — nothing in it is read by pi, and `./setup.sh` (pi) leaves it alone. It adds omp's built-in `usage` segment to the status line, showing the OpenCode Go plan windows inline:
+`omp/` configures **oh-my-pi**, a different harness from `pi` — nothing in it is read by pi, and `./setup.sh` (pi) leaves it alone. It installs omp's status line plus an extension that puts the OpenCode Go plan windows on their own row underneath it:
 
 ```
-π > DeepSeek V4.1 Flash > ⏱ Go · 5h 4% (55m) · 7d 2% (4h) · mo 2% (22d 18h) > 📁 ~/pi-config > ⑂ main ▶─0.7%──┃──1M─
+ π > ◒ DeepSeek V4.1 Flash > 📁 ~/pi-config > ⑂ main ▶─0.7%──────────────┃──1M─
+ ⏱ Go · 5h 1% (4h 31m) · 7d 0% (6d 4h) · mo 2% (21d 18h)
 ```
+
+The numbers are a second row because omp's status line is a single row that drops its last segment when the terminal is narrow — the built-in `usage` segment (~52 columns) is always the first casualty on a phone screen. Hook status rows are never dropped.
 
 ```bash
-./omp/setup.sh                    # permanent: appends to ~/.omp/agent/config.yml
-omp --config omp/statusline.yml   # or: try it for a single run
+./omp/setup.sh   # extension + statusLine block (idempotent)
 ```
 
-omp fetches these numbers itself (`GET https://opencode.ai/zen/go/v1/usage`, authenticated `opencode-go` credential) — it needs no cookies, unlike `pi-go-bars`. Requires the provider to be logged in (`omp login` / `OPENCODE_API_KEY`). Details, rationale and caveats: [`omp/README.md`](omp/README.md).
+omp fetches these numbers itself (`GET https://opencode.ai/zen/go/v1/usage`, authenticated `opencode-go` credential, shared with `/usage`) — it needs no cookies, unlike `pi-go-bars`. Requires the provider to be logged in (`omp login` / `OPENCODE_API_KEY`). Details, rationale and caveats: [`omp/README.md`](omp/README.md).
 
 ## Credentials
 
