@@ -1,0 +1,54 @@
+# oh-my-pi (omp) status line — NOT pi
+#
+# This file configures the status line of **oh-my-pi (`omp`)**, the harness in
+# which these settings are rendered. It is not read by `pi` and has nothing to
+# do with `../settings.json` or the extensions in `../extensions/` (those are
+# pi packages).
+#
+# Two ways to use it:
+#   1. Try it without touching your config:  omp --config <path to this file>
+#   2. Make it permanent:                    ./setup.sh   (appends this block to
+#                                            ~/.omp/agent/config.yml if the file
+#                                            has no statusLine section yet)
+#
+# The `usage` segment shows the OpenCode Go plan windows (rolling 5h / weekly 7d
+# / monthly) that omp fetches itself from https://opencode.ai/zen/go/v1/usage
+# using the authenticated opencode-go credential — no cookies, no scraping.
+
+statusLine:
+  # Required: leftSegments/rightSegments are only honoured when preset is
+  # "custom" — with any other preset the segment lists below are ignored.
+  preset: custom
+  separator: powerline-thin
+  # `usage` sits right after `model` on purpose: the layout drops segments from
+  # the end when the terminal is narrow, so earlier entries survive. With the
+  # tier label shortened to "Go" the segment stays visible down to ~110 cols.
+  leftSegments:
+    - pi
+    - vim
+    - model
+    - usage
+    - mode
+    - collab
+    - stream
+    - path
+    - git
+    - pr
+    - context_pct
+    - cost
+  rightSegments:
+    - session_name
+  # Copied from the built-in "default" preset so switching to `custom` does not
+  # change how the other segments render.
+  segmentOptions:
+    model:
+      showThinkingLevel: true
+    path:
+      abbreviate: true
+      maxLength: 40
+      stripWorkPrefix: true
+    git:
+      showBranch: true
+      showStaged: true
+      showUnstaged: true
+      showUntracked: true
