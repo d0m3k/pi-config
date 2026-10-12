@@ -60,10 +60,12 @@ pi install npm:pi-subagents
 The numbers are a second row because omp's status line is a single row that drops its last segment when the terminal is narrow — the built-in `usage` segment (~52 columns) is always the first casualty on a phone screen. Hook status rows are never dropped.
 
 ```bash
-./omp/setup.sh   # extension + statusLine block (idempotent)
+./omp/setup.sh   # extension + statusLine and tui settings (idempotent)
 ```
 
 omp fetches these numbers itself (`GET https://opencode.ai/zen/go/v1/usage`, authenticated `opencode-go` credential, shared with `/usage`) — it needs no cookies, unlike `pi-go-bars`. Requires the provider to be logged in (`omp login` / `OPENCODE_API_KEY`). Details, rationale and caveats: [`omp/README.md`](omp/README.md).
+
+The same script also sets `tui.resizeScrollback: preserve`. On Android the soft keyboard is a height-only resize, and omp's default (`rebuild`) answers a height shrink by wiping native scrollback and replaying the whole transcript — the chat appears to rewind every time the keyboard opens. See [Phone terminals](omp/README.md#phone-terminals-android--termux-keyboard-toggles).
 
 ## Credentials
 

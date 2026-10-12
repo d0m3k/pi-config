@@ -39,11 +39,11 @@ Hook status text set through `ctx.ui.setStatus(key, text)` is rendered as **one 
 ## Install
 
 ```bash
-./setup.sh          # installs the extension + appends the statusLine block if absent
+./setup.sh          # installs the extension + appends statusLine and tui settings if absent
 omp config get statusLine.preset
 ```
 
-`setup.sh` is safe to re-run: the extension file is refreshed every run and the `statusLine` block is only appended when `~/.omp/agent/config.yml` has no `statusLine:` section yet, so settings you changed with `/settings` are never clobbered. If the section already exists it prints how to merge by hand. To apply by hand:
+`setup.sh` is safe to re-run: the extension file is refreshed every run, the `statusLine` block is only appended when `~/.omp/agent/config.yml` has no `statusLine:` section yet, and `tui.resizeScrollback` only when that key is absent — settings you changed with `/settings` are never clobbered. If the section already exists it prints how to merge by hand. To apply by hand:
 
 ```bash
 cp extensions/opencode-go-status.ts ~/.omp/agent/extensions/
@@ -51,6 +51,7 @@ omp config set statusLine.preset custom
 omp config set statusLine.leftSegments '["pi","vim","model","mode","collab","stream","path","git","pr","context_pct","cost"]'
 omp config set statusLine.rightSegments '["session_name"]'
 omp config set statusLine.segmentOptions '{"model":{"showThinkingLevel":true},"path":{"abbreviate":true,"maxLength":40,"stripWorkPrefix":true},"git":{"showBranch":true,"showStaged":true,"showUnstaged":true,"showUntracked":true}}'
+cat tui.yml >> ~/.omp/agent/config.yml   # phone terminals: see below
 ```
 
 `omp --config statusline.yml` loads the bar for a single run only; it does **not** install the extension, so the usage row is absent until `./setup.sh` (or the `cp` above) has run.
@@ -76,11 +77,27 @@ export OPENCODE_API_KEY=...
 omp usage -p opencode-go
 ```
 
+## Phone terminals (Android / Termux): keyboard toggles
+
+Showing or hiding the soft keyboard is a **height-only** terminal resize. omp's default `tui.resizeScrollback: rebuild` answers a height *shrink* — the keyboard appearing — by erasing the terminal's native scrollback (`ED2` + `ED3`) and replaying the whole transcript at the new geometry, so the chat appears to rewind every time the keyboard opens. A height *grow* does nothing, which is why hiding it alone looks calm and the rewind shows up on the way back in.
+
+`tui.yml` sets `tui.resizeScrollback: preserve`: the resize repaints the live viewport and leaves retained history untouched. This repo installs it with `./setup.sh`; the tradeoff is that after a real width change (rotation, split pane) scrollback rows stay wrapped at the old width until the next rebuild. `rebuild` is the omp default, `append` replays the transcript below the retained copy on width changes only.
+
+```bash
+omp config get tui.resizeScrollback    # preserve
+omp config set tui.resizeScrollback rebuild   # back to omp's default
+```
+
+The parent project's own fix for this class of artifact is structural: since **pi 1.0.0** the TUI defaults to fullscreen (`tuiMode: "fullscreen"`, `regular` keeps the normal scrollback), so the transcript lives in the app's viewport and a resize is only a re-layout. omp has no `tuiMode`; its equivalent is a Tern/TSP surface, where the resize handler does no replay at all — Termux speaks neither.
+
+Edit `tui.yml` (or `config.yml`) by hand rather than saving from `/settings` or `omp config set`: omp rewrites the file through a plain YAML round-trip, which drops every comment in it, including the blocks this repo appends.
+
 ## Verify
 
 ```bash
 omp config get statusLine.preset         # custom
 omp config get statusLine.leftSegments   # … and no "usage" entry
+omp config get tui.resizeScrollback      # preserve
 omp usage -p opencode-go                 # the numbers the row shows
 ```
 

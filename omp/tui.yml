@@ -1,0 +1,23 @@
+# omp terminal settings (added by pi-config omp/setup.sh) — NOT pi.
+#
+# `resizeScrollback: preserve`
+#
+# Showing or hiding the soft keyboard on Android is a height-only terminal
+# resize (the app re-lays out its view and sends SIGWINCH). With omp's default
+# ("rebuild") a height *shrink* — the keyboard appearing — makes the renderer
+# erase the terminal's native scrollback (ED2 + ED3) and replay the whole
+# transcript at the new geometry, which reads as the chat history rewinding
+# every time the keyboard opens. "preserve" repaints only the live viewport and
+# leaves retained history alone.
+#
+# Tradeoff: after a real width change (rotation, split pane) scrollback rows
+# stay wrapped at the old width until the next rebuild. Set it back if you would
+# rather have current-width history than stable keyboard toggles:
+#
+#   omp config set tui.resizeScrollback rebuild
+#
+# Edit this file by hand rather than saving from /settings or `omp config set`:
+# omp rewrites config.yml through a plain YAML round-trip, which drops every
+# comment in the file — including the blocks this repo appends.
+tui:
+  resizeScrollback: preserve

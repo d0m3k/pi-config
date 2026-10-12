@@ -1,14 +1,14 @@
 #!/bin/bash
-# Install the oh-my-pi (omp) status line + usage row.
+# Install the oh-my-pi (omp) status line, usage row and terminal settings.
 #
 # omp-only: this writes ~/.omp/agent/config.yml and
 # ~/.omp/agent/extensions/opencode-go-status.ts. It does not touch pi, and the
 # pi installer (../setup.sh) does not read anything in this directory.
 #
-# The statusLine block is only appended when the target config has no
-# `statusLine:` section yet, so it is safe to re-run and never clobbers settings
-# you changed with `/settings`. The extension file is ours, so it is refreshed
-# on every run.
+# The statusLine block and the `tui.resizeScrollback` key are only appended when
+# the target config has no such section/key yet, so it is safe to re-run and
+# never clobbers settings you changed with `/settings`. The extension file is
+# ours, so it is refreshed on every run.
 set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -62,12 +62,32 @@ else
   echo "  ✓ appended statusLine section to $CONFIG"
 fi
 
+# 3. Terminal settings: on Android the soft keyboard is a height-only resize,
+#    and omp's default ("rebuild") answers a height shrink by wiping native
+#    scrollback and replaying the whole transcript — the chat appears to rewind
+#    every time the keyboard opens. See tui.yml.
+if grep -qE '^[[:space:]]*resizeScrollback:' "$CONFIG"; then
+  echo "  ⏭ $CONFIG already sets tui.resizeScrollback — leaving it unchanged"
+else
+  # Ensure the existing file ends on a newline before appending a top-level block.
+  [ -s "$CONFIG" ] && [ -n "$(tail -c 1 "$CONFIG")" ] && printf '\n' >> "$CONFIG"
+  printf '\n# terminal (added by pi-config omp/setup.sh)\n' >> "$CONFIG"
+  cat "$HERE/tui.yml" >> "$CONFIG"
+  echo "  ✓ appended tui.resizeScrollback to $CONFIG"
+fi
+
 echo ""
-echo "  Verify:  omp config get statusLine.preset   → custom"
+echo "  Verify:  omp config get statusLine.preset      → custom"
 echo "           omp config get statusLine.leftSegments"
-echo "           omp usage -p opencode-go            (numbers the row shows)"
+echo "           omp config get tui.resizeScrollback   → preserve"
+echo "           omp usage -p opencode-go              (numbers the row shows)"
 echo ""
 echo "  The usage row reads OpenCode Go limits only when the opencode-go"
 echo "  provider is authenticated (`omp login` / OPENCODE_API_KEY). It uses"
 echo "  omp's own cached usage reports — no cookies, and no patched bundle."
 echo "  Restart omp (or start a new session) to load the extension."
+echo ""
+echo "  tui.resizeScrollback=preserve keeps phone-keyboard toggles from wiping"
+echo "  and replaying the transcript. Do not edit it with /settings or"
+echo "  \`omp config set\`: omp rewrites config.yml through a plain YAML"
+echo "  round-trip, which drops the comment blocks appended here."
