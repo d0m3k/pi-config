@@ -1,14 +1,16 @@
 #!/bin/bash
-# Install the oh-my-pi (omp) status line, usage row and terminal settings.
+# Install the oh-my-pi (omp) status line, model display names, usage row and
+# terminal settings.
 #
-# omp-only: this writes ~/.omp/agent/config.yml and
+# omp-only: this writes ~/.omp/agent/config.yml, ~/.omp/agent/models.yml and
 # ~/.omp/agent/extensions/opencode-go-status.ts. It does not touch pi, and the
 # pi installer (../setup.sh) does not read anything in this directory.
 #
 # The statusLine block and the `tui.resizeScrollback` key are only appended when
-# the target config has no such section/key yet, so it is safe to re-run and
-# never clobbers settings you changed with `/settings`. The extension file is
-# ours, so it is refreshed on every run.
+# the target config has no such section/key yet, and models.yml is only copied
+# when it does not exist, so it is safe to re-run and never clobbers settings you
+# changed with `/settings`. The extension file is ours, so it is refreshed on
+# every run.
 set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -76,10 +78,24 @@ else
   echo "  ✓ appended tui.resizeScrollback to $CONFIG"
 fi
 
+# 4. Model display names: the status line's `model` segment renders the resolved
+#    model's catalog `name` (falling back to the raw id), so a models.yml
+#    `modelOverrides.<id>.name` is what shortens "DeepSeek V4.1 Flash" to
+#    "DS 4.1F" on the bar and in the /models picker. Installed only when absent:
+#    unlike the extension, this file is yours to edit.
+MODELS="$AGENT_DIR/models.yml"
+if [ -f "$MODELS" ]; then
+  echo "  ⏭ $MODELS exists — leaving it unchanged (merge omp/models.yml by hand)"
+else
+  cp "$HERE/models.yml" "$MODELS"
+  echo "  ✓ installed $MODELS (model display names)"
+fi
+
 echo ""
 echo "  Verify:  omp config get statusLine.preset      → custom"
 echo "           omp config get statusLine.leftSegments"
 echo "           omp config get tui.resizeScrollback   → preserve"
+echo "           omp models find deepseek-v4.1-flash --json   (name: DS 4.1F)"
 echo "           omp usage -p opencode-go              (numbers the row shows)"
 echo ""
 echo "  The usage row reads OpenCode Go limits only when the opencode-go"

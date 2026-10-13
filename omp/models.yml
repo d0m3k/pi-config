@@ -1,0 +1,19 @@
+# Model display names for the omp TUI. Installed to ~/.omp/agent/models.yml by
+# ./setup.sh, and only when that file does not exist yet — it is user-editable
+# config, so re-running never overwrites a name you changed.
+#
+# omp's status line `model` segment renders the resolved model's catalog `name`
+# (falling back to the raw id), so overriding `name` is what shortens the bar.
+# A `modelOverrides` entry patches that model's metadata only: id, provider,
+# context limits, thinking levels, pricing and auth are untouched.
+#
+#   providers:
+#     <provider-id>:
+#       modelOverrides:
+#         <model-id>:
+#           name: <label shown in the bar and the /models picker>
+providers:
+  opencode-go:
+    modelOverrides:
+      deepseek-v4.1-flash:
+        name: DS 4.1F

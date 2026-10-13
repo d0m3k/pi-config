@@ -33,7 +33,7 @@ The pi setup script:
 | `pi-statusline-local` | pi | Custom footer with provider, no cost, Go+DS integration |
 | `pi-subagents` | pi | Subagent delegation, declared in `settings.json` and installed from npm on first start |
 | `settings.json` | pi | pi package registry |
-| `omp/` | **oh-my-pi (omp)** | omp status line + OpenCode Go usage row (5h / 7d / month windows, above the editor's second line). **pi ignores this directory.** |
+| `omp/` | **oh-my-pi (omp)** | omp status line, model display names + OpenCode Go usage row (5h / 7d / month windows, above the editor's second line). **pi ignores this directory.** |
 
 ## Subagents
 
@@ -53,7 +53,7 @@ pi install npm:pi-subagents
 `omp/` configures **oh-my-pi**, a different harness from `pi` — nothing in it is read by pi, and `./setup.sh` (pi) leaves it alone. It installs omp's status line plus an extension that puts the OpenCode Go plan windows on their own row underneath it:
 
 ```
- π > ◒ DeepSeek V4.1 Flash > 📁 ~/pi-config > ⑂ main ▶─0.7%──────────────┃──1M─
+ π > ◒ DS 4.1F > 📁 ~/pi-config > ⑂ main ▶─0.7%──────────────┃──1M─
  ⏱ Go · 5h 1% (4h 31m) · 7d 0% (6d 4h) · mo 2% (21d 18h)
 ```
 

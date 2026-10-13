@@ -7,7 +7,7 @@ Everything else in this repo targets `pi`: `../settings.json` and `../extensions
 | | pi | oh-my-pi (omp) |
 |---|---|---|
 | Installer | `../setup.sh` | `./setup.sh` |
-| Config file | `~/.pi/agent/settings.json` (pi package list) | `~/.omp/agent/config.yml` (`statusLine` block) |
+| Config file | `~/.pi/agent/settings.json` (pi package list) | `~/.omp/agent/config.yml` (`statusLine` block) + `~/.omp/agent/models.yml` (model display names) |
 | Extensions | `../extensions/*` → `~/.pi/agent/extensions/` | `extensions/opencode-go-status.ts` → `~/.omp/agent/extensions/` |
 | Extension API | `ctx.ui.setStatus()` → rendered by `pi-statusline-local` | `ctx.ui.setStatus()` → rendered as its own row below the bar |
 | Go plan usage | `pi-go-bars-local` fetches it (own cookies/credentials) | built into omp: `authStorage.usage.reports()`, fetched from `https://opencode.ai/zen/go/v1/usage` |
@@ -17,7 +17,7 @@ Everything else in this repo targets `pi`: `../settings.json` and `../extensions
 Two rows instead of one:
 
 ```
- π > ◒ DeepSeek V4.1 Flash > 📁 ~/pi-config > ⑂ main ▶─0.7%──────────────┃──1M─
+ π > ◒ DS 4.1F > 📁 ~/pi-config > ⑂ main ▶─0.7%──────────────┃──1M─
  ⏱ Go · 5h 1% (4h 31m) · 7d 0% (6d 4h) · mo 2% (21d 18h)
 ```
 
@@ -36,17 +36,38 @@ Measured on this repo's config:
 
 Hook status text set through `ctx.ui.setStatus(key, text)` is rendered as **one row per key below the bar** (`render()` appends `#sortedHookStatuses`), where width only truncates — it is never dropped from the layout. That is the row used here.
 
+## Model display names
+
+The bar's `model` segment renders the resolved model's catalog `name` and falls back to the raw id — `opencode-go/deepseek-v4.1-flash` is catalogued as `DeepSeek V4.1 Flash`, which is what you would otherwise see. `models.yml` installs a `modelOverrides` entry that renames it to **`DS 4.1F`** for both the bar and the `/models` picker:
+
+```yaml
+providers:
+  opencode-go:
+    modelOverrides:
+      deepseek-v4.1-flash:
+        name: DS 4.1F
+```
+
+The override patches that model's metadata only — id, provider, context window, thinking levels, pricing and credentials are untouched. Add more models by repeating the pattern; the provider id is the first half of the selector `omp models` prints.
+
+```bash
+omp models find deepseek-v4.1-flash --json    # "name":"DS 4.1F"
+```
+
+Unlike the extension, `models.yml` is not refreshed on every run: `./setup.sh` copies it only when `~/.omp/agent/models.yml` does not exist, so a rename you edit there survives re-runs.
+
 ## Install
 
 ```bash
-./setup.sh          # installs the extension + appends statusLine and tui settings if absent
+./setup.sh          # extension + statusLine/tui settings + models.yml if absent
 omp config get statusLine.preset
 ```
 
-`setup.sh` is safe to re-run: the extension file is refreshed every run, the `statusLine` block is only appended when `~/.omp/agent/config.yml` has no `statusLine:` section yet, and `tui.resizeScrollback` only when that key is absent — settings you changed with `/settings` are never clobbered. If the section already exists it prints how to merge by hand. To apply by hand:
+`setup.sh` is safe to re-run: the extension file is refreshed every run, the `statusLine` block is only appended when `~/.omp/agent/config.yml` has no `statusLine:` section yet, `tui.resizeScrollback` only when that key is absent, and `models.yml` only when `~/.omp/agent/models.yml` does not exist — settings and names you changed yourself are never clobbered. If the section already exists it prints how to merge by hand. To apply by hand:
 
 ```bash
 cp extensions/opencode-go-status.ts ~/.omp/agent/extensions/
+cp models.yml ~/.omp/agent/models.yml                    # model display names
 omp config set statusLine.preset custom
 omp config set statusLine.leftSegments '["pi","vim","model","mode","collab","stream","path","git","pr","context_pct","cost"]'
 omp config set statusLine.rightSegments '["session_name"]'
@@ -98,6 +119,7 @@ Edit `tui.yml` (or `config.yml`) by hand rather than saving from `/settings` or 
 omp config get statusLine.preset         # custom
 omp config get statusLine.leftSegments   # … and no "usage" entry
 omp config get tui.resizeScrollback      # preserve
+omp models find deepseek-v4.1-flash --json   # "name":"DS 4.1F"
 omp usage -p opencode-go                 # the numbers the row shows
 ```
 
