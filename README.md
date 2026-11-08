@@ -6,7 +6,7 @@ Two targets, deliberately kept apart:
 
 | Target | Lives in | Installed by | Config file |
 |---|---|---|---|
-| `pi` | `extensions/`, `settings.json` | `./setup.sh` | `~/.pi/agent/settings.json` |
+| `pi` | `extensions/`, `settings.json`, `AGENTS.md`, `hosts/` | `./setup.sh` | `~/.pi/agent/settings.json`, `~/.pi/agent/AGENTS.md` |
 | `omp` (oh-my-pi) | `omp/` | `omp/setup.sh` | `~/.omp/agent/config.yml` |
 
 The `omp/` directory is **not** read by pi, and `./setup.sh` never touches it — see [oh-my-pi (omp)](#oh-my-pi-omp) below.
@@ -30,6 +30,34 @@ already has a settings file, `setup.sh` merges only the `packages` array and lea
 theme/model/thinking defaults alone. Machine-local runtime keys (`lastChangelogVersion`,
 `extensionChangelogVersions`) are deliberately not committed. Keep the defaults below in
 sync with what is actually installed (pi 1.5.0, `deepseek-v4.1-flash`).
+
+## Shared agent context (`AGENTS.md`)
+
+pi loads `<agent-dir>/AGENTS.md` in **every session, in every working directory**,
+so that path — not `~/AGENTS.md` — is what keeps both machines on the same
+instructions. It is generated, because pi context files have no include directive:
+
+| Part | Tracked | Contents |
+|---|---|---|
+| `AGENTS.md` | yes | host-independent facts: harness layout, defaults, pi-config workflow, projects, VPS/Pi endpoints |
+| `hosts/termux-android.md` | yes | phone-specific: Termux paths, no Python, SELinux, clipboard, `which` missing |
+| `hosts/fedora-intel.md` | yes | laptop-specific (**skeleton — fill in the TODOs on the laptop**) |
+| `hosts/private.local.md` | **no** (gitignored) | secrets/one-offs, e.g. the mikrus panel console password |
+
+`./setup.sh` detects the profile — `$TERMUX_VERSION` → `termux-android`,
+x86_64 Linux with `ID=fedora` → `fedora-intel` — and concatenates
+common + profile + private into `~/.pi/agent/AGENTS.md`. No match means no
+profile is appended and the script says so; add a `hosts/<name>.md` instead of
+branches in prose.
+
+Rules:
+
+- Never edit `~/.pi/agent/AGENTS.md`; edit this repo and re-run `./setup.sh`.
+- Nothing that is true on only one host goes in the common file, and no secret
+  goes anywhere that git can see — `AGENTS.md` is sent to the model provider.
+- Keep `~/AGENTS.md` absent: it would load as well for sessions under `$HOME`,
+  duplicating (and eventually contradicting) the managed file. `setup.sh` warns
+  if it reappears.
 
 ## What's Included
 
