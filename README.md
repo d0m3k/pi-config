@@ -25,6 +25,12 @@ The pi setup script:
 2. Installs `settings.json` pointing to local extensions
 3. Prompts for `pi-go-bars` credentials (`auth` + `__Host-console_session` cookies)
 
+`settings.json` here is a **fresh-install template**, not a sync target: on a machine that
+already has a settings file, `setup.sh` merges only the `packages` array and leaves your
+theme/model/thinking defaults alone. Machine-local runtime keys (`lastChangelogVersion`,
+`extensionChangelogVersions`) are deliberately not committed. Keep the defaults below in
+sync with what is actually installed (pi 1.5.0, `deepseek-v4.1-flash`).
+
 ## What's Included
 
 | Component | Target | Description |

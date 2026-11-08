@@ -1,8 +1,7 @@
 {
-  "lastChangelogVersion": "0.80.3",
-  "theme": "dark",
+  "theme": "bluegrey",
   "defaultProvider": "opencode-go",
-  "defaultModel": "deepseek-v4-pro",
+  "defaultModel": "deepseek-v4.1-flash",
   "defaultThinkingLevel": "high",
   "packages": [
     "extensions/pi-statusline-local",
