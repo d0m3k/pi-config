@@ -73,7 +73,7 @@ fi
 # stale number in a context file is worse than no number.
 PI_VER="$(cat "$AGENT_DIR/install/current-version" 2>/dev/null || true)"
 [ -n "$PI_VER" ] || PI_VER="$(pi --version 2>/dev/null | head -n 1 || true)"
-OMP_VER="$(omp --version 2>/dev/null | head -n 1 || true)"
+OMP_VER="$(omp --version 2>/dev/null | head -n 1 | sed 's|^omp/||' || true)"
 NODE_VER="$(node -v 2>/dev/null || true)"
 PI_DOCS=""
 if [ -n "$PI_VER" ] && [ -d "$AGENT_DIR/install/releases/$PI_VER/node_modules/@earendil-works/pi-coding-agent" ]; then
