@@ -33,7 +33,8 @@ Shared: the `pi-config` repo, the `opencode-go` provider as default, the same
   `~/.pi/agent/install/current-version` and execs
   `~/.pi/agent/install/releases/<version>/node_modules/.bin/pi`.
   Upgrade with `pi update`; never `npm i -g`. Older releases stay on disk.
-- **Docs / examples**: `~/.pi/agent/install/releases/<version>/node_modules/@earendil-works/pi-coding-agent/{docs,examples}`.
+- **Docs / examples**: under the release directory printed in *Runtime facts* at the
+  end of this file (`install/releases/<version>/node_modules/@earendil-works/pi-coding-agent/`).
 - **Config files** in `~/.pi/agent/`: `settings.json`, `auth.json`, `mcp.json`,
   `models.json`, `keybindings.json`, `extensions/`, `skills/`, `prompts/`,
   `themes/`, `sessions/` (JSONL per project), `AGENTS.md`.
@@ -57,6 +58,8 @@ Shared: the `pi-config` repo, the `opencode-go` provider as default, the same
   refreshes it.
 
 ### Docs index
+
+Start here; the authoritative list is that directory itself (`ls` it — versions differ).
 
 `usage.md`, `quickstart.md`, `settings.md`, `configuration.md`, `models.md`,
 `models-configuration.md`, `virtual-models.md`, `providers.md`,

@@ -40,8 +40,8 @@ The authoritative env dump is `env | sort`. Notable values:
    Clipboard is text-only; images cannot be pasted into the editor.
 7. **Phone terminal** — soft-keyboard show/hide is a height-only resize; that
    is why `omp` is configured with `tui.resizeScrollback: preserve`.
-8. **pi** — managed install at `~/.pi/agent/install/releases/1.5.0`,
-   `omp` 18.10.3 alongside it.
+8. **Versions** — not written down here on purpose: the installed pi/omp/node
+   versions and the release path are probed by `./setup.sh` into *Runtime facts*.
 
 ## Working style here
 
